@@ -162,8 +162,25 @@ export default function Home() {
   );
 }
 
+async function fetchWithRetry(url: string, maxRetries = 3): Promise<string> {
+  for (let i = 0; i < maxRetries; i++) {
+    const res = await fetch(url);
+    if (res.ok) return res.text();
+    if (res.status === 429 && i < maxRetries - 1) {
+      await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
+      continue;
+    }
+    throw new Error(`HTTP ${res.status}`);
+  }
+  throw new Error('Max retries reached');
+}
+
 async function fetchPage(url: string): Promise<string> {
   const sources = [
+    async () => {
+      const res = await fetchWithRetry('https://cors.eu.org/' + url);
+      return res;
+    },
     async () => {
       const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -175,19 +192,7 @@ async function fetchPage(url: string): Promise<string> {
       return res.text();
     },
     async () => {
-      const res = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url));
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.text();
-    },
-    async () => {
-      const res = await fetch('https://cors.eu.org/' + url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.text();
-    },
-    async () => {
-      const res = await fetch(
-        'https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(url)
-      );
+      const res = await fetch('https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(url));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.text();
     },
