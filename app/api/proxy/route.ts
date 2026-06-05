@@ -15,12 +15,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const body = await res.text();
+    if (!res.ok) {
+      return NextResponse.json({ error: `HTTP ${res.status}` }, { status: res.status });
+    }
 
-    return new NextResponse(body, {
-      status: res.status,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-    });
+    const body = await res.text();
+    return NextResponse.json({ body });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Fetch failed' },

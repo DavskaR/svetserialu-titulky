@@ -163,25 +163,55 @@ export default function Home() {
 }
 
 async function fetchPage(url: string): Promise<string> {
-  const proxies = [
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?',
+  const sources = [
+    async () => {
+      const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    },
+    async () => {
+      const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(url));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    },
+    async () => {
+      const res = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    },
+    async () => {
+      const res = await fetch('https://cors.eu.org/' + url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    },
+    async () => {
+      const res = await fetch(
+        'https://webcache.googleusercontent.com/search?q=cache:' + encodeURIComponent(url)
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    },
+    async () => {
+      const res = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      return data.body || (await res.text());
+    },
   ];
 
-  for (const proxy of proxies) {
+  const errors: string[] = [];
+  for (const source of sources) {
     try {
-      const res = await fetch(proxy + encodeURIComponent(url));
-      if (res.ok) return res.text();
-    } catch {
-      continue;
+      return await source();
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : String(e));
     }
   }
 
-  const res = await fetch('/api/proxy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} pro ${url}`);
-  return res.text();
+  throw new Error('Nepodařilo se načíst stránku. Zkus to prosím znovu.');
 }
